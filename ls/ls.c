@@ -3,6 +3,8 @@
 #include<unistd.h>
 #include<stdio.h>
 #include<dirent.h>
+#include<pwd.h>
+#include<grp.h>
 
 
 char* mode_to_letters(mode_t mode){
@@ -38,15 +40,39 @@ char* mode_to_letters(mode_t mode){
 
 }
 
+char* uid_to_name(uid_t uid){
+    static char uid_str[255];
+    struct passwd* pwd;
+    if( (pwd = getpwuid(uid)) == NULL){
+        // uid name not found
+        sprintf(uid_str,"%d",uid);
+        return uid_str;
+    }else{
+        return pwd->pw_name;
+    }
+}
+
+char* gid_to_name(gid_t gid){
+    static char gid_str[255];
+    struct group* grp;
+    if( (grp = getgrgid(gid)) == NULL){
+        sprintf(gid_str, "%d",gid);
+        return gid_str;
+    }else{
+        return grp->gr_name;
+    }
+
+}
+
 
 void show_file_info(struct stat* statp, const char* filename){
     printf("%s\t", mode_to_letters(statp->st_mode));
-    printf("link: %lu\t",statp->st_nlink);
-    printf("uid: %d\t",statp->st_uid);
-    printf("gid: %d\t",statp->st_gid);
-    printf("size: %ld\t",statp->st_size);
+    printf("%lu\t",statp->st_nlink);
+    printf("%s\t",uid_to_name(statp->st_uid));
+    printf("%s\t",gid_to_name(statp->st_gid));
+    printf("%ld\t",statp->st_size);
     printf("mtime: %ld\t",statp->st_mtime);
-    printf("name: %s\n",filename);
+    printf("%s\n",filename);
 
 }
 
