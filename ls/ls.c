@@ -6,6 +6,8 @@
 #include<pwd.h>
 #include<grp.h>
 #include<time.h>
+#include<string.h>
+#include<stdlib.h>
 
 
 char* mode_to_letters(mode_t mode){
@@ -68,24 +70,33 @@ char* gid_to_name(gid_t gid){
 
 
 void show_file_info(struct stat* statp, const char* filename){
-    printf("%s\t", mode_to_letters(statp->st_mode));
-    printf("%lu\t",statp->st_nlink);
-    printf("%s\t",uid_to_name(statp->st_uid));
-    printf("%s\t",gid_to_name(statp->st_gid));
-    printf("%ld\t",statp->st_size);
-    printf("%.12s\t",4 + ctime(&statp->st_mtime) );
+    printf("%s", mode_to_letters(statp->st_mode));
+    printf("%4lu ",statp->st_nlink);
+    printf("%-8s ",uid_to_name(statp->st_uid));
+    printf("%-8s ",gid_to_name(statp->st_gid));
+    printf("%8ld ",statp->st_size);
+    printf("%.12s ",4 + ctime(&statp->st_mtime) );
     printf("%s\n",filename);
 
 }
 
-
+void cat_full_filename(const char *pathname, char *name, char fullname[]){
+    int psize = sizeof(pathname) / sizeof(char);
+    strcpy(fullname, pathname);
+    char slash[1] = "/";
+    if(pathname[psize-1]!='/')
+        strcat(fullname,slash);
+    strcat(fullname, name);
+}
 
 
 int do_ls(const char* pathname){
     struct stat path_stat;
 
     if(stat(pathname, &path_stat)){
-        perror("stat(pathname) failed\n");
+        fprintf(stderr,"ls: Cannot access '%s': ",pathname); 
+        perror("");
+        exit(1);
     }
 
     if(S_ISREG(path_stat.st_mode)){
@@ -95,16 +106,24 @@ int do_ls(const char* pathname){
     }else if (S_ISDIR(path_stat.st_mode)){
     //is directory
         DIR *dirp;
-        if(  (dirp = opendir(pathname)) == NULL)
-            perror("opendir(pathname) failed\n");
+        if(  (dirp = opendir(pathname)) == NULL){
+            fprintf(stderr, "ls: Cannot open directory '%s': ",pathname);
+            perror("");
+            exit(1);
+        }
         struct dirent *dire;
         struct stat file_stat;
         while( (dire = readdir(dirp)) != NULL){
-            if(stat(dire->d_name, &file_stat)){
+            char full_filename[255] = "";
+            cat_full_filename(pathname,dire->d_name,full_filename);
+            if( stat(full_filename, &file_stat)==-1 ){
                 perror("stat(dire->d_name) failed\n");
+                printf("\t%s\n",full_filename);
+            }else{
+                show_file_info(&file_stat, dire->d_name);        
             }
-            show_file_info(&file_stat, dire->d_name);        
         }
+        closedir(dirp);
     }
 
     return 0;
