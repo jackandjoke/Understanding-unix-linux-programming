@@ -86,8 +86,9 @@ void show_file_info(struct stat* statp, const char* filename){
         printf("%-8s ",gid_to_name(statp->st_gid));
         printf("%10ld ",statp->st_size);
         printf("%.12s ",4 + ctime(&statp->st_mtime) );
-    }
-    printf("%s\n",filename);
+        printf("%s\n",filename);
+    }else
+        printf("%s\t",filename);
 
 }
 
