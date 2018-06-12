@@ -126,8 +126,10 @@ int do_ls(const char* pathname){
         }
         struct dirent *dire;
         const char* filenames[MAX_FILE_NUM];
+        const char* dirnames[MAX_FILE_NUM];
         struct stat file_stat;
         int idx = 0;
+        int didx = 0;
         while( (dire = readdir(dirp)) != NULL){
 
             if(idx == MAX_FILE_NUM - 1){
@@ -138,9 +140,9 @@ int do_ls(const char* pathname){
             if(!options['a'-'a'] && dire->d_name[0] =='.')
                 continue;
 
-            if(!options['R'-'A' + 26])
-                filenames[idx++] = dire->d_name;
-            else {
+
+            filenames[idx++] = dire->d_name;
+            if(options['R'-'A'+26]) {
                 char full_filename[255] = "";
                 cat_full_filename(pathname,dire->d_name,full_filename);
                 if( stat(full_filename, &file_stat)==-1 ){
@@ -148,13 +150,10 @@ int do_ls(const char* pathname){
                     printf("\t%s\n",full_filename);
                 }else{
                     if(S_ISDIR(file_stat.st_mode) ){
-                        if(strcmp(dire->d_name,".") != 0 && strcmp(dire->d_name,"..") != 0)
-                            do_ls(full_filename);
-                        else if(options['a'-'a'])
-                            filenames[idx++] = dire->d_name;
+                        if(strcmp(dire->d_name,".") != 0 && strcmp(dire->d_name,"..") != 0){
+                            dirnames[didx++] = full_filename;
+                        }
                     }
-                    else
-                        filenames[idx++] = dire->d_name;
                 }
             }
         }
@@ -179,7 +178,12 @@ int do_ls(const char* pathname){
 
             }
         }
+        printf("\n");
         closedir(dirp);
+        for(i = 0; i < didx; i ++){
+            printf("%s: \n",dirnames[i]);
+            do_ls(dirnames[i]);
+        }
     }
 
     return 0;
