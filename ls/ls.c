@@ -10,6 +10,8 @@
 #include<stdlib.h>
 
 #define MAX_FILE_NUM 256
+char options[10];
+int opt_num = 0;
 
 char* mode_to_letters(mode_t mode){
     static char letters[10];
@@ -76,7 +78,7 @@ void show_file_info(struct stat* statp, const char* filename){
     printf("%4lu ",statp->st_nlink);
     printf("%-8s ",uid_to_name(statp->st_uid));
     printf("%-8s ",gid_to_name(statp->st_gid));
-    printf("%8ld ",statp->st_size);
+    printf("%10ld ",statp->st_size);
     printf("%.12s ",4 + ctime(&statp->st_mtime) );
     printf("%s\n",filename);
 
@@ -126,7 +128,13 @@ int do_ls(const char* pathname){
             filenames[idx++] = dire->d_name;
         }
         int mycmp(const void *, const void*);
-        qsort(filenames,idx,sizeof(const char*),mycmp);
+        int mycmp_r(const void *, const void*);
+        int binary_search(char *, int, char);
+        if(binary_search(options,opt_num,'l'))
+            qsort(filenames,idx,sizeof(const char*),mycmp);
+        else if(binary_search(options,opt_num,'r'))
+            qsort(filenames,idx,sizeof(const char*),mycmp_r);
+
         int i;
         struct stat file_stat;
         for(i = 0; i < idx; i ++){
@@ -147,14 +155,62 @@ int do_ls(const char* pathname){
 int mycmp(const void *c1, const void *c2){
     return  strcmp( *(const char**) c1, *(const char**) c2 );
 }
+int mycmp_r(const void *c1, const void *c2){
+    return  strcmp( *(const char**) c2, *(const char**) c1 );
+}
+
+
+int binary_search(char *A, int n, char target){
+    int i = 0, j = n-1;
+    while(i <= j){
+        int m = i + (j - i) / 2;
+        if(A[m] == target ) return 1;
+        else if(A[m] > target) j = m - 1;
+        else i = m + 1;
+    }
+    return 0;
+
+}
+
+int parse_argvs(int argc, char *argvs[],char *dirs[]){
+    int i = 0;
+    int dirs_num = 0;
+    for(;i<argc-1;i++){
+        if(argvs[i+1][0]=='-'){
+            int j = 1;
+            for(;argvs[i+1][j]!='\0';j++)
+                //todo check whether it is valid
+                options[opt_num++] = argvs[i+1][j];
+        }
+        else
+            dirs[dirs_num++] = argvs[i+1];
+    }
+    return dirs_num;
+
+}
 
 int main(int argc, char *argvs[]){
     if(argc == 1){
         const char *dirname = ".";
         do_ls(dirname);
     }else{
-        while( --argc ){
-            do_ls(*(++argvs));
+        char* dirs[10];
+        int dirs_num = 0;
+        dirs_num = parse_argvs(argc,argvs,dirs);
+
+        if(dirs_num == 0){
+            do_ls(".");
+        }
+        else{
+            int i = 0;
+            int first = 1;
+            for(;i<dirs_num;i++){
+                if(!first)
+                    printf("\n");
+                else
+                    first = 0;
+                do_ls(dirs[i]);
+            }
         }
     }
     return 0;
