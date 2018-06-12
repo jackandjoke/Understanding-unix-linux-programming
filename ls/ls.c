@@ -9,9 +9,11 @@
 #include<string.h>
 #include<stdlib.h>
 
+#define MAX_FILE_NUM 256
 
 char* mode_to_letters(mode_t mode){
     static char letters[10];
+    //deal with rwx
     for(int i = 0; i < 10; i ++)
         letters[i] = '-';
 
@@ -80,9 +82,9 @@ void show_file_info(struct stat* statp, const char* filename){
 
 }
 
-void cat_full_filename(const char *pathname, char *name, char fullname[]){
+void cat_full_filename(const char *pathname, const char *name, char fullname[]){
     int psize = sizeof(pathname) / sizeof(char);
-    strcpy(fullname, pathname);
+    strcat(fullname, pathname);
     char slash[1] = "/";
     if(pathname[psize-1]!='/')
         strcat(fullname,slash);
@@ -112,15 +114,29 @@ int do_ls(const char* pathname){
             exit(1);
         }
         struct dirent *dire;
-        struct stat file_stat;
+        const char* filenames[MAX_FILE_NUM];
+        int idx = 0;
         while( (dire = readdir(dirp)) != NULL){
+
+            if(idx == MAX_FILE_NUM - 1){
+                fprintf(stderr, "two many files in '%s'",pathname);
+                perror("");
+                exit(1);
+            }
+            filenames[idx++] = dire->d_name;
+        }
+        int mycmp(const void *, const void*);
+        qsort(filenames,idx,sizeof(const char*),mycmp);
+        int i;
+        struct stat file_stat;
+        for(i = 0; i < idx; i ++){
             char full_filename[255] = "";
-            cat_full_filename(pathname,dire->d_name,full_filename);
+            cat_full_filename(pathname,filenames[i],full_filename);
             if( stat(full_filename, &file_stat)==-1 ){
                 perror("stat(dire->d_name) failed\n");
                 printf("\t%s\n",full_filename);
             }else{
-                show_file_info(&file_stat, dire->d_name);        
+                show_file_info(&file_stat, filenames[i]);
             }
         }
         closedir(dirp);
@@ -128,7 +144,9 @@ int do_ls(const char* pathname){
 
     return 0;
 }
-
+int mycmp(const void *c1, const void *c2){
+    return  strcmp( *(const char**) c1, *(const char**) c2 );
+}
 
 int main(int argc, char *argvs[]){
     if(argc == 1){
