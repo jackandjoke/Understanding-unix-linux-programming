@@ -10,9 +10,7 @@
 #include<stdlib.h>
 
 #define MAX_FILE_NUM 256
-char options[10];
-int opt_num = 0;
-int show_all_info = 0;
+int options[52];
 
 char* mode_to_letters(mode_t mode){
     static char letters[10];
@@ -80,8 +78,8 @@ char* gid_to_name(gid_t gid){
 
 
 
-void show_file_info(struct stat* statp, const char* filename, int show_all){
-    if(show_all){
+void show_file_info(struct stat* statp, const char* filename){
+    if(options['l'-'a']){
         printf("%s", mode_to_letters(statp->st_mode));
         printf("%4lu ",statp->st_nlink);
         printf("%-8s ",uid_to_name(statp->st_uid));
@@ -104,6 +102,8 @@ void cat_full_filename(const char *pathname, const char *name, char fullname[]){
 
 
 int do_ls(const char* pathname){
+    int mycmp(const void *, const void*);
+    int mycmp_r(const void *, const void*);
     struct stat path_stat;
 
     if(stat(pathname, &path_stat)){
@@ -114,11 +114,7 @@ int do_ls(const char* pathname){
 
     if(S_ISREG(path_stat.st_mode)){
     //is regular file
-        int binary_search( char *,int , char);
-        if(binary_search(options,opt_num,'l')){
-            show_all_info = 1;
-        }
-         show_file_info(&path_stat, pathname,show_all_info);        
+        show_file_info(&path_stat, pathname);        
 
     }else if (S_ISDIR(path_stat.st_mode)){
     //is directory
@@ -130,6 +126,7 @@ int do_ls(const char* pathname){
         }
         struct dirent *dire;
         const char* filenames[MAX_FILE_NUM];
+        struct stat file_stat;
         int idx = 0;
         while( (dire = readdir(dirp)) != NULL){
 
@@ -138,20 +135,39 @@ int do_ls(const char* pathname){
                 perror("");
                 exit(1);
             }
-            filenames[idx++] = dire->d_name;
+            if(!options['a'-'a'] && dire->d_name[0] =='.')
+                continue;
+
+            if(!options['R'-'A' + 26])
+                filenames[idx++] = dire->d_name;
+            else {
+                char full_filename[255] = "";
+                cat_full_filename(pathname,dire->d_name,full_filename);
+                if( stat(full_filename, &file_stat)==-1 ){
+                    perror("stat(dire->d_name) failed\n");
+                    printf("\t%s\n",full_filename);
+                }else{
+                    if(S_ISDIR(file_stat.st_mode) ){
+                        if(strcmp(dire->d_name,".") != 0 && strcmp(dire->d_name,"..") != 0)
+                            do_ls(full_filename);
+                        else if(options['a'-'a'])
+                            filenames[idx++] = dire->d_name;
+                    }
+                    else
+                        filenames[idx++] = dire->d_name;
+                }
+            }
         }
-        int mycmp(const void *, const void*);
-        int mycmp_r(const void *, const void*);
-        int binary_search(char *, int, char);
-        if(binary_search(options,opt_num,'l')){
-            show_all_info = 1;
-            qsort(filenames,idx,sizeof(const char*),mycmp);
+        if(options['q'-'a']){
+            //do nothing;
+            ;
         }
-        else if(binary_search(options,opt_num,'r'))
+        else if(options['r'-'a'])
             qsort(filenames,idx,sizeof(const char*),mycmp_r);
+        else if(options['l'-'a'])
+            qsort(filenames,idx,sizeof(const char*),mycmp);
 
         int i;
-        struct stat file_stat;
         for(i = 0; i < idx; i ++){
             char full_filename[255] = "";
             cat_full_filename(pathname,filenames[i],full_filename);
@@ -159,7 +175,7 @@ int do_ls(const char* pathname){
                 perror("stat(dire->d_name) failed\n");
                 printf("\t%s\n",full_filename);
             }else{
-                show_file_info(&file_stat, filenames[i],show_all_info);
+                show_file_info(&file_stat, filenames[i]);
 
             }
         }
@@ -187,6 +203,22 @@ int binary_search(char *A, int n, char target){
     return 0;
 
 }
+int check_argv(char c){
+    // invalid return -1, 
+    // otherwise return corresponding offset to 'a' or 'A'
+    switch(c){
+        case 'a': return 'a' - 'a';
+        case 'l': return 'l' - 'a'; 
+        case 'q': return 'q' - 'a';
+        case 'r': return 'r' - 'a';
+        case 'R': return 'R' - 'A' + 26;
+        default:
+                  fprintf(stderr, "ls: invalid option -- '%c'\n",c);
+                  exit(1);
+                  return -1;
+    }
+
+}
 
 int parse_argvs(int argc, char *argvs[],char *dirs[]){
     int i = 0;
@@ -194,9 +226,13 @@ int parse_argvs(int argc, char *argvs[],char *dirs[]){
     for(;i<argc-1;i++){
         if(argvs[i+1][0]=='-'){
             int j = 1;
-            for(;argvs[i+1][j]!='\0';j++)
-                //todo check whether it is valid
-                options[opt_num++] = argvs[i+1][j];
+            char c;
+            int t;
+            for(; (c = argvs[i+1][j])!='\0';j++){
+                if( (t = check_argv(c)) != -1){
+                    options[t] = 1;
+                }
+            }
         }
         else
             dirs[dirs_num++] = argvs[i+1];
@@ -206,6 +242,7 @@ int parse_argvs(int argc, char *argvs[],char *dirs[]){
 }
 
 int main(int argc, char *argvs[]){
+    memset(options,0,sizeof(options));
     if(argc == 1){
         const char *dirname = ".";
         do_ls(dirname);
