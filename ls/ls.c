@@ -12,6 +12,7 @@
 #define MAX_FILE_NUM 256
 char options[10];
 int opt_num = 0;
+int show_all_info = 0;
 
 char* mode_to_letters(mode_t mode){
     static char letters[10];
@@ -28,6 +29,8 @@ char* mode_to_letters(mode_t mode){
         letters[2] = 'w';
     if(S_IXUSR &mode)
         letters[3] = 'x';
+    if(S_ISUID &mode)
+        letters[3] = 's';
 
     if(S_IRGRP &mode)
         letters[4] = 'r';
@@ -35,6 +38,8 @@ char* mode_to_letters(mode_t mode){
         letters[5] = 'w';
     if(S_IXGRP &mode)
         letters[6] = 'x';
+    if(S_ISGID &mode)
+        letters[6] = 's';
 
     if(S_IROTH &mode)
         letters[7] = 'r';
@@ -42,6 +47,8 @@ char* mode_to_letters(mode_t mode){
         letters[8] = 'w';
     if(S_IXOTH &mode)
         letters[9] = 'x';
+    if(S_ISVTX &mode)
+        letters[9] = 't';
 
     return letters;
 
@@ -73,13 +80,15 @@ char* gid_to_name(gid_t gid){
 
 
 
-void show_file_info(struct stat* statp, const char* filename){
-    printf("%s", mode_to_letters(statp->st_mode));
-    printf("%4lu ",statp->st_nlink);
-    printf("%-8s ",uid_to_name(statp->st_uid));
-    printf("%-8s ",gid_to_name(statp->st_gid));
-    printf("%10ld ",statp->st_size);
-    printf("%.12s ",4 + ctime(&statp->st_mtime) );
+void show_file_info(struct stat* statp, const char* filename, int show_all){
+    if(show_all){
+        printf("%s", mode_to_letters(statp->st_mode));
+        printf("%4lu ",statp->st_nlink);
+        printf("%-8s ",uid_to_name(statp->st_uid));
+        printf("%-8s ",gid_to_name(statp->st_gid));
+        printf("%10ld ",statp->st_size);
+        printf("%.12s ",4 + ctime(&statp->st_mtime) );
+    }
     printf("%s\n",filename);
 
 }
@@ -105,7 +114,11 @@ int do_ls(const char* pathname){
 
     if(S_ISREG(path_stat.st_mode)){
     //is regular file
-        show_file_info(&path_stat, pathname);        
+        int binary_search( char *,int , char);
+        if(binary_search(options,opt_num,'l')){
+            show_all_info = 1;
+        }
+         show_file_info(&path_stat, pathname,show_all_info);        
 
     }else if (S_ISDIR(path_stat.st_mode)){
     //is directory
@@ -130,8 +143,10 @@ int do_ls(const char* pathname){
         int mycmp(const void *, const void*);
         int mycmp_r(const void *, const void*);
         int binary_search(char *, int, char);
-        if(binary_search(options,opt_num,'l'))
+        if(binary_search(options,opt_num,'l')){
+            show_all_info = 1;
             qsort(filenames,idx,sizeof(const char*),mycmp);
+        }
         else if(binary_search(options,opt_num,'r'))
             qsort(filenames,idx,sizeof(const char*),mycmp_r);
 
@@ -144,7 +159,8 @@ int do_ls(const char* pathname){
                 perror("stat(dire->d_name) failed\n");
                 printf("\t%s\n",full_filename);
             }else{
-                show_file_info(&file_stat, filenames[i]);
+                show_file_info(&file_stat, filenames[i],show_all_info);
+
             }
         }
         closedir(dirp);
