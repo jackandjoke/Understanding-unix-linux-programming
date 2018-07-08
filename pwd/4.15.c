@@ -1,5 +1,5 @@
 /* simple mkdir command, with -p option
- *
+ * using mkdir(), stat(),chdir(),
  *
  */
 
